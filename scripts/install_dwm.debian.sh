@@ -11,17 +11,22 @@ install_alacritty_git() {
 	snap install alacritty --classic
 }
 
-download_suckless_repos() {
+download_suckless_repo(){
+	SRC_DIR=$SCRIPT_DIR/../src
+	mkdir -p $SRC_DIR
+	git clone https://git.suckless.org/$i $SRC_DIR/$i.git
+	CP $SRC_DIR/$i.git/config.def.h $SRC_DIR/$i.git/config.h
+	cd $SRC_DIR/$i.git
+	git add  config.h
+	git commit -a -m "adding config.h"
+}
+
+download_suckless_allrepos() {
 	SRC_DIR=$SCRIPT_DIR/../src
 	mkdir -p $SRC_DIR
 
-	#for i in dwm slock dmenu sent;do
-	for i in slstatus;do
-		git clone https://git.suckless.org/$i $SRC_DIR/$i.git
-		cp $SRC_DIR/$i.git/config.def.h $SRC_DIR/$i.git/config.h
-		cd $SRC_DIR/$i.git
-		git add  config.h
-		git commit -a -m "adding config.h"
+	for i in dwm slock dmenu sent slstatus;do
+		download_suckless_repo $i
 	done
 }
 
@@ -31,6 +36,17 @@ build_suckless_dwm(){
 	cp $SCRIPT_DIR/patches/base-patch-dwm.diff base-patch-dwm.diff
 	git apply base-patch-dwm.diff
 	make clean install
+}
+
+build_suckless_dmenu(){
+	cd $SCRIPT_DIR/../src/dmenu.git
+	make clean install
+}
+
+build_suckless_repo(){
+	cd $SCRIPT_DIR/../src/$i.git
+	make clean install
+
 }
 
 update_lightdm(){
@@ -63,9 +79,15 @@ cat $DWM_START |sed 's/^/    /g'
 
 }
 
-#install_alacritty_git
-#download_suckless_repos
-#build_suckless_dwm
-update_lightdm
+main() {
+	install_alacritty_git
+	download_suckless_allrepos
+	build_suckless_repo dwm
+	build_suckless_repo dmenu
+	build_suckless_repo slstatus
+	update_lightdm
+}
 
+download_suckless_repo slstatus
+build_suckless_repo slstatus
 popd > /dev/null
