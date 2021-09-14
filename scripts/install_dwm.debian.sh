@@ -1,10 +1,12 @@
 #!/bin/env bash
-
 pushd . > /dev/null
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-SRC_DIR=$SCRIPT_DIR/../src
-[[ ! -d $SRC_DIR ]] && mkdir -p $SRC_DIR
+SRC_DIR=$(dirname $SCRIPT_DIR)/src
+BUILD_ROOT=/tmp/boot-strap
+echo "BUILD_ROOT = $BUILD_ROOT"
+
+[[ ! -d $BUILD_ROOT ]] && mkdir -p $BUILD_ROOT
 
 install_alacritty_git() {
 	apt install git -y
@@ -14,9 +16,9 @@ install_alacritty_git() {
 }
 
 download_suckless_repo(){
-	git clone https://git.suckless.org/$i $SRC_DIR/$i.git
-	CP $SRC_DIR/$i.git/config.def.h $SRC_DIR/$i.git/config.h
-	cd $SRC_DIR/$i.git
+	echo git clone https://git.suckless.org/$1 $BUILD_ROOT/$1.git
+	cp $BUILD_ROOT/$1.git/config.def.h $BUILD_ROOT/$1.git/config.h
+	cd $BUILD_ROOT/$1.git
 	git add  config.h
 	git commit -a -m "adding config.h"
 }
@@ -27,22 +29,22 @@ download_suckless_allrepos() {
 	done
 }
 
-build_suckless_dwm(){
+build_suckless_custom_dwm(){
 	apt install make gcc libx11-dev libxft-dev libxinerama-dev xorg -y
-	cd $SCRIPT_DIR/../src/dwm.git
-	cp $SCRIPT_DIR/patches/base-patch-dwm.diff base-patch-dwm.diff
+	cp $SCRIPT_DIR/patches/base-patch-dwm.diff $BUILD_ROOT/dwm.git/base-patch-dwm.diff
+	cd $BUILD_ROOT/dwm.git
 	git apply base-patch-dwm.diff
-	make clean install
+	make clean install >build.log 2>&1
 }
 
 build_suckless_dmenu(){
-	cd $SCRIPT_DIR/../src/dmenu.git
-	make clean install
+	cd $BUILD_ROOT/dmenu.git
+	make clean install >build.log 2>&1
 }
 
 build_suckless_repo(){
-	cd $SCRIPT_DIR/../src/$i.git
-	make clean install
+	cd $BUILD_ROOT/$1.git
+	make clean install >build.log 2>&1
 
 }
 
@@ -61,7 +63,10 @@ EOM
 DWM_START=/usr/local/bin/startdwm
 cat >$DWM_START <<EOM
 #!/bin/sh
-/usr/local/bin/dwm
+xsetroot -solid '#334455'
+while true; do
+	/usr/local/bin/dwm
+done
 EOM
 
 chmod +x /usr/local/bin/startdwm
@@ -76,15 +81,59 @@ cat $DWM_START |sed 's/^/    /g'
 
 }
 
+_emit_slsstatus_config_header(){
+cat <<EOM
+const unsigned int interval = 1000;
+static const char unknown_str[] = "n/a";
+#define MAXLEN 2048
+EOM
+if [[ -d /sys/class/power_supply/BAT0 ]]; then
+	cat <<EOM
+static const struct arg args[] = {
+	{ battery_perc, " %s ",           "BAT0" },
+	{ datetime, " %s ",           "%a %b %d %I:%M %p" },
+};
+EOM
+return
+fi
+if [[ -d /sys/class/power_supply/BAT1 ]]; then
+	cat <<EOM
+static const struct arg args[] = {
+	{ battery_perc, " %s ",           "BAT1" },
+	{ datetime, " %s ",           "%a %b %d %I:%M %p" },
+};
+EOM
+return
+fi
+
+
+
+cat <<EOM
+static const struct arg args[] = {
+	{ datetime, " %s ",           "%a %b %d %I:%M %p" },
+};
+EOM
+
+}
+
+build_suckless_custom_slstatus(){
+	cd $BUILD_ROOT/slstatus.git
+	_emit_slsstatus_config_header > $BUILD_ROOT/slstatus.git/config.h
+	make install
+}
+
 main() {
 	install_alacritty_git
 	download_suckless_allrepos
-	build_suckless_repo dwm
+
+	build_suckless_custom_dwm
 	build_suckless_repo dmenu
-	build_suckless_repo slstatus
+
+	download_suckless_repo slstatus
+	build_suckless_custom_slstatus
+
 	update_lightdm
 }
 
-download_suckless_repo slstatus
-build_suckless_repo slstatus
+main
 popd > /dev/null
