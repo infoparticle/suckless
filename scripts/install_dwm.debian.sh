@@ -3,6 +3,8 @@
 pushd . > /dev/null
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+SRC_DIR=$SCRIPT_DIR/../src
+[[ ! -d $SRC_DIR ]] && mkdir -p $SRC_DIR
 
 install_alacritty_git() {
 	apt install git -y
@@ -12,8 +14,6 @@ install_alacritty_git() {
 }
 
 download_suckless_repo(){
-	SRC_DIR=$SCRIPT_DIR/../src
-	mkdir -p $SRC_DIR
 	git clone https://git.suckless.org/$i $SRC_DIR/$i.git
 	CP $SRC_DIR/$i.git/config.def.h $SRC_DIR/$i.git/config.h
 	cd $SRC_DIR/$i.git
@@ -22,9 +22,6 @@ download_suckless_repo(){
 }
 
 download_suckless_allrepos() {
-	SRC_DIR=$SCRIPT_DIR/../src
-	mkdir -p $SRC_DIR
-
 	for i in dwm slock dmenu sent slstatus;do
 		download_suckless_repo $i
 	done
